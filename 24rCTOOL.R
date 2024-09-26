@@ -1,4 +1,5 @@
 library(tidyverse)
+#devtools::install_github("francagiannini/rCTOOL")
 library(rCTOOL)
 
 # C inputs -----
@@ -63,7 +64,7 @@ cinp_list <- apply(mod_desing, 1, function(i) {
                                 i["stock"], 
                                 i["cinp"], 
                                 sep = "_")], 
-            6),
+            20),
         rep(crop_rot_list[i["field_info"]], 
             20))) 
   
@@ -75,7 +76,7 @@ cinp_list <- apply(mod_desing, 1, function(i) {
   df$cinp = i["cinp"]
   df$farm = i["farm"]
   df$field_info = i["field_info"]
-  df$period = ifelse(df$year>30, 'crop_rot', 'burnout_Now')
+  df$period = ifelse(df$year>100, 'crop_rot', 'burnout_Now')
   
   df
 })
@@ -138,18 +139,20 @@ cinp_df <- do.call("rbind", cinp_list) |> mutate(
     'Cman' = C_manure
   )
 
+writexl::write_xlsx(cinp_df, "cinp_df.xlsx")
+
 # Simulations
 # Parametrisation ----
 
 ## Time period ----
-period = rCTOOL::define_timeperiod(yr_start = 1, yr_end = 130)
+period = rCTOOL::define_timeperiod(yr_start = 1, yr_end = 200)
 
 ## Managment an C inputs ----
 ## Monthly allocation
 ## Fraction of manure that we consider is already Humidified
 
 management = management_config(
-  f_man_humification = 0.192,
+  f_man_humification = 0.12,
   manure_monthly_allocation = c(0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0),
   plant_monthly_allocation = c(0, 0, 0, 8, 12, 16, 64, 0, 0, 0, 0, 0) / 100#,
   #grass_monthly_allocation = c(1,1,2,7,12,15,17,16,14,9,5,1)/100
@@ -187,8 +190,8 @@ soil = soil_config(Csoil_init = Cinit_kl, # Initial C stock at 1m depth
 
 ## Temperature ----
 
-T_ave <- rep(c(0.26,0.08, 1.96,5.89,10.72,14.27,16.19,15.86,12.80,8.61,4.55,1.70),130)
-T_range <- rep(c(4, 5, 6, 8, 9, 9, 9, 8, 7, 6, 5, 5),130)
+T_ave <- rep(c(0.26,0.08, 1.96,5.89,10.72,14.27,16.19,15.86,12.80,8.61,4.55,1.70),200)
+T_range <- rep(c(4, 5, 6, 8, 9, 9, 9, 8, 7, 6, 5, 5),200)
 
 temp = bind_cols(month=period$timeperiod$mon,
                  yr=period$timeperiod$yrs,
@@ -230,7 +233,7 @@ field_results <-
   do.call("rbind", scn_list) |> filter(mon == 12) |> 
   bind_cols(cinp_df, .name_repair = "unique")
 
-writexl::write_xlsx(field_results, "field_results_kl24.xlsx")
+writexl::write_xlsx(field_results, "field_results_kl24_100.xlsx")
 
 
 farm_results_wide <- field_results |>
@@ -255,34 +258,34 @@ farm_results_summ <- farm_results_wide  |> #unique() |>
   select(farm, yrs,stock,cinp, scenario,C_topsoil,C_subsoil) |> 
   unique() |> as.data.frame()
 
-writexl::write_xlsx(farm_results_summ, "farm_results_summ.xlsx")
+writexl::write_xlsx(farm_results_summ, "farm_results_summ_100.xlsx")
 
 delta_field <- data.frame(
   field_results[which(field_results$year==1),
                 c('farm','stock','cinp', 'scenario','field')],
   
   "delta_Ctopspoil_25yr" =
-    field_results[which(field_results$year==30+25),'C_topsoil']-
-    field_results[which(field_results$year==30),'C_topsoil'],
+    field_results[which(field_results$year==100+25),'C_topsoil']-
+    field_results[which(field_results$year==100),'C_topsoil'],
   
   "delta_Ctopspoil_100yr" =
-    field_results[which(field_results$year==130),'C_topsoil']-
-    field_results[which(field_results$year==30),'C_topsoil'],
+    field_results[which(field_results$year==200),'C_topsoil']-
+    field_results[which(field_results$year==100),'C_topsoil'],
   
   "delta_C1mt_25yr" =
-    (field_results[which(field_results$year==30+25),'C_topsoil']+
-       field_results[which(field_results$year==30+25),'C_subsoil'])-
-    (field_results[which(field_results$year==30),'C_topsoil']+
-       field_results[which(field_results$year==30),'C_subsoil']),
+    (field_results[which(field_results$year==100+25),'C_topsoil']+
+       field_results[which(field_results$year==100+25),'C_subsoil'])-
+    (field_results[which(field_results$year==100),'C_topsoil']+
+       field_results[which(field_results$year==100),'C_subsoil']),
   
   "delta_C1mt_100yr" =
-    (field_results[which(field_results$year==130),'C_topsoil']+
-       field_results[which(field_results$year==130),'C_subsoil'])-
-    (field_results[which(field_results$year==30),'C_topsoil']+
-       field_results[which(field_results$year==30),'C_subsoil'])
+    (field_results[which(field_results$year==200),'C_topsoil']+
+       field_results[which(field_results$year==200),'C_subsoil'])-
+    (field_results[which(field_results$year==100),'C_topsoil']+
+       field_results[which(field_results$year==100),'C_subsoil'])
 )
 
-writexl::write_xlsx(delta_field, "delta_field.xlsx")
+writexl::write_xlsx(delta_field, "delta_field_100.xlsx")
 
 
 delta_farm <- data.frame(
@@ -290,25 +293,25 @@ delta_farm <- data.frame(
                     c('farm','stock','cinp', 'scenario')],
   
   "delta_Ctopspoil_25yr" =
-    farm_results_summ[which(farm_results_summ$yr==30+25),'C_topsoil']-
-    farm_results_summ[which(farm_results_summ$yr==30),'C_topsoil'],
+    farm_results_summ[which(farm_results_summ$yr==100+25),'C_topsoil']-
+    farm_results_summ[which(farm_results_summ$yr==100),'C_topsoil'],
   
   "delta_Ctopspoil_100yr" =
-    farm_results_summ[which(farm_results_summ$yr==130),'C_topsoil']-
-    farm_results_summ[which(farm_results_summ$yr==30),'C_topsoil'],
+    farm_results_summ[which(farm_results_summ$yr==200),'C_topsoil']-
+    farm_results_summ[which(farm_results_summ$yr==100),'C_topsoil'],
   
   "delta_C1mt_25yr" =
-    (farm_results_summ[which(farm_results_summ$yr==30+25),'C_topsoil']+
-       farm_results_summ[which(farm_results_summ$yr==30+25),'C_subsoil'])-
-    (farm_results_summ[which(farm_results_summ$yr==30),'C_topsoil']+
-       farm_results_summ[which(farm_results_summ$yr==30),'C_subsoil']),
+    (farm_results_summ[which(farm_results_summ$yr==100+25),'C_topsoil']+
+       farm_results_summ[which(farm_results_summ$yr==100+25),'C_subsoil'])-
+    (farm_results_summ[which(farm_results_summ$yr==100),'C_topsoil']+
+       farm_results_summ[which(farm_results_summ$yr==100),'C_subsoil']),
   
   "delta_C1mt_100yr" =
-    (farm_results_summ[which(farm_results_summ$yr==130),'C_topsoil']+
-       farm_results_summ[which(farm_results_summ$yr==130),'C_subsoil'])-
-    (farm_results_summ[which(farm_results_summ$yr==30),'C_topsoil']+
-       farm_results_summ[which(farm_results_summ$yr==30),'C_subsoil'])
+    (farm_results_summ[which(farm_results_summ$yr==200),'C_topsoil']+
+       farm_results_summ[which(farm_results_summ$yr==200),'C_subsoil'])-
+    (farm_results_summ[which(farm_results_summ$yr==100),'C_topsoil']+
+       farm_results_summ[which(farm_results_summ$yr==100),'C_subsoil'])
 )
 
 
-writexl::write_xlsx(delta_farm, "delta_farm.xlsx")
+writexl::write_xlsx(delta_farm, "delta_farm_100.xlsx")
